@@ -5,7 +5,9 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { useCityStore } from '../store/useCityStore';
 import { TerrainMesh } from './TerrainMesh';
+import { GeoTerrainMesh } from './GeoTerrainMesh';
 import { BuildingsInstanced } from './BuildingsMesh';
+import { AmenitiesMesh } from './AmenitiesMesh';
 import { RoadsMesh, SectorOutlines } from './RoadsMesh';
 import { VegetationMesh } from './VegetationMesh';
 import { WaterMesh } from './WaterMesh';
@@ -19,9 +21,11 @@ const lodManager = new LODManager();
 function SceneContent() {
   const grid = useCityStore((s) => s.grid);
   const terrainMesh = useCityStore((s) => s.terrainMesh);
+  const geoBase = useCityStore((s) => s.geoBase);
   const sectors = useCityStore((s) => s.sectors);
   const roads = useCityStore((s) => s.roads);
   const buildings = useCityStore((s) => s.buildings);
+  const amenities = useCityStore((s) => s.amenities);
   const trees = useCityStore((s) => s.trees);
   const rocks = useCityStore((s) => s.rocks);
   const vehicles = useCityStore((s) => s.vehicles);
@@ -85,14 +89,19 @@ function SceneContent() {
         ? buildings
         : [];
 
+  const filteredAmenities =
+    selectedSectorId !== null
+      ? amenities.filter((a) => a.sectorId === selectedSectorId)
+      : amenities;
+
   return (
     <>
       <ambientLight intensity={0.55} />
       <directionalLight position={[40, 60, 25]} intensity={0.9} />
       <hemisphereLight args={['#87CEEB', '#3E2723', 0.35]} />
 
-      <TerrainMesh data={terrainMesh} />
-      <WaterMesh grid={grid} visible={true} />
+      {geoBase ? <GeoTerrainMesh geoBase={geoBase} /> : <TerrainMesh data={terrainMesh} />}
+      <WaterMesh grid={grid} visible={!geoBase} />
 
       {showCity && (
         <>
@@ -104,6 +113,7 @@ function SceneContent() {
             visible={true}
           />
           <BuildingsInstanced buildings={filteredBuildings} visible={filteredBuildings.length > 0} />
+          <AmenitiesMesh amenities={filteredAmenities} visible={filteredAmenities.length > 0} />
           <VegetationMesh trees={trees} rocks={rocks} visible={showVegetation} />
           <TrafficMesh vehicles={vehicles} trafficLights={trafficLights} visible={showTraffic} />
           <PedestriansMesh pedestrians={pedestrians} visible={showTraffic} />

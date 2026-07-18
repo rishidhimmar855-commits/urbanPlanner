@@ -1,7 +1,7 @@
 import { GridEngine } from '../core/GridEngine';
 import { TerrainEngine } from '../engines/TerrainEngine';
 import { SectorGenerator } from '../engines/SectorGenerator';
-import { RoadGenerator } from '../engines/RoadGenerator';
+import { RoadGenerator, DEFAULT_ROAD_LAYOUT, type RoadLayoutOptions } from '../engines/RoadGenerator';
 import { BuildingGenerator } from '../engines/BuildingGenerator';
 import { VegetationGenerator } from '../engines/VegetationGenerator';
 import { SimulationEngine } from '../engines/SimulationEngine';
@@ -30,7 +30,8 @@ export interface CityGenerationResult {
 
 export async function generateCity(
   terrainGrid: TerrainType[][],
-  onProgress?: (progress: GenerationProgress) => void
+  onProgress?: (progress: GenerationProgress) => void,
+  roadLayout: RoadLayoutOptions = DEFAULT_ROAD_LAYOUT
 ): Promise<CityGenerationResult> {
   const report = (stage: string, progress: number, message: string) => {
     onProgress?.({ stage, progress, message });
@@ -52,7 +53,7 @@ export async function generateCity(
 
   report('roads', 0.45, 'Building arterial & sector roads...');
   const roadGenerator = new RoadGenerator(grid);
-  const roads = roadGenerator.generate(plan);
+  const roads = roadGenerator.generate(plan, roadLayout);
 
   report('buildings', 0.6, 'Placing buildings...');
   const buildingGenerator = new BuildingGenerator(grid);

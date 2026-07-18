@@ -20,6 +20,7 @@ export class Cell {
   districtId: number | null = null;
   roadId: number | null = null;
   buildingId: number | null = null;
+  amenityId: number | null = null;
   simulationData: Partial<SimulationData> = {};
 
   constructor(gridX: number, gridY: number, terrainType: TerrainType) {
@@ -56,6 +57,7 @@ export class Cell {
       districtId: this.districtId,
       roadId: this.roadId,
       buildingId: this.buildingId,
+      amenityId: this.amenityId,
       simulationData: { ...this.simulationData },
     };
   }

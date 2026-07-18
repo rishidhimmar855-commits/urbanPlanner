@@ -14,6 +14,8 @@ import type {
   CityProject,
   SimulationData,
   CameraViewId,
+  AmenityInstance,
+  AmenityType,
 } from '../types';
 import type { GridEngine } from '../core/GridEngine';
 import type { TerrainMeshData } from '../engines/TerrainEngine';
@@ -24,8 +26,25 @@ import type { RoadGenerator } from '../engines/RoadGenerator';
 import { AnalyticsEngine } from '../analytics/AnalyticsEngine';
 import { CAMERA_VIEWS } from '../core/constants';
 
+export interface GeoBaseData {
+  /** Stitched satellite imagery used as ground texture */
+  textureCanvas: HTMLCanvasElement;
+  /** Height field in meters, heightsSize x heightsSize row-major (image top first) */
+  heights: Float32Array;
+  heightsSize: number;
+  /** Ground plane size in world units (matches the generated city grid footprint) */
+  widthUnits: number;
+  depthUnits: number;
+  /** Real-world meters represented by one world unit */
+  metersPerUnit: number;
+}
+
 interface CityState {
   project: CityProject | null;
+  /** Source terrain map (upload or rendered sample) for heatmap overlays / report previews */
+  sourceMapDataUrl: string | null;
+  /** Real-world satellite + elevation ground base (null for abstract terrains) */
+  geoBase: GeoBaseData | null;
   generationStage: string;
   generationProgress: GenerationProgress | null;
   isGenerating: boolean;
@@ -36,6 +55,7 @@ interface CityState {
   sectors: Sector[];
   roads: RoadSegment[];
   buildings: Building[];
+  amenities: AmenityInstance[];
   trees: TreeInstance[];
   rocks: RockInstance[];
   vehicles: Vehicle[];
@@ -60,6 +80,8 @@ interface CityState {
   showSectorPanel: boolean;
 
   setProject: (project: CityProject) => void;
+  setSourceMapDataUrl: (url: string | null) => void;
+  setGeoBase: (geoBase: GeoBaseData | null) => void;
   setGenerationProgress: (progress: GenerationProgress) => void;
   setGenerating: (val: boolean) => void;
   loadCity: (data: {
@@ -79,6 +101,9 @@ interface CityState {
     roadGenerator: RoadGenerator;
   }) => void;
   selectSector: (id: number | null) => void;
+  /** Place an amenity on a free parcel cell inside the sector. Returns false when full. */
+  addAmenity: (sectorId: number, type: AmenityType) => boolean;
+  removeAmenity: (id: number) => void;
   setRenderMode: (mode: RenderMode) => void;
   setActiveReport: (report: AnalyticsReport | null) => void;
   setCameraTarget: (target: [number, number, number]) => void;
@@ -94,6 +119,8 @@ interface CityState {
 
 export const useCityStore = create<CityState>((set, get) => ({
   project: null,
+  sourceMapDataUrl: null,
+  geoBase: null,
   generationStage: 'idle',
   generationProgress: null,
   isGenerating: false,
@@ -104,6 +131,7 @@ export const useCityStore = create<CityState>((set, get) => ({
   sectors: [],
   roads: [],
   buildings: [],
+  amenities: [],
   trees: [],
   rocks: [],
   vehicles: [],
@@ -129,6 +157,10 @@ export const useCityStore = create<CityState>((set, get) => ({
 
   setProject: (project) => set({ project }),
 
+  setSourceMapDataUrl: (url) => set({ sourceMapDataUrl: url }),
+
+  setGeoBase: (geoBase) => set({ geoBase }),
+
   setGenerationProgress: (progress) =>
     set({ generationProgress: progress, generationStage: progress.stage }),
 
@@ -141,6 +173,7 @@ export const useCityStore = create<CityState>((set, get) => ({
       sectors: data.sectors,
       roads: data.roads,
       buildings: data.buildings,
+      amenities: [],
       trees: data.vegetation.trees,
       rocks: data.vegetation.rocks,
       vehicles: data.vehicles,
@@ -176,9 +209,68 @@ export const useCityStore = create<CityState>((set, get) => ({
     set({ selectedSectorId: id, showSectorPanel: id !== null });
   },
 
+  addAmenity: (sectorId, type) => {
+    const state = get();
+    const sector = state.sectors.find((s) => s.id === sectorId);
+    if (!sector || !state.grid) return false;
+
+    const grid = state.grid;
+    const free = sector.cellIds
+      .map((cid) => grid.getCellById(cid))
+      .filter(
+        (c): c is NonNullable<ReturnType<typeof grid.getCellById>> =>
+          !!c && c.roadId === null && c.buildingId === null && c.amenityId === null
+      );
+    if (free.length === 0) return false;
+
+    // Prefer road frontage like BuildingGenerator does
+    const withFrontage = free.filter((c) =>
+      grid.getNeighbors(c.gridX, c.gridY).some((n) => n.roadId !== null)
+    );
+    const pool = withFrontage.length > 0 ? withFrontage : free;
+    const cell = pool[Math.floor(Math.random() * pool.length)];
+
+    const nextId = state.amenities.reduce((m, a) => Math.max(m, a.id), -1) + 1;
+    const amenity: AmenityInstance = {
+      id: nextId,
+      sectorId,
+      cellId: cell.id,
+      type,
+      position: [cell.worldPosition.x, cell.elevation, cell.worldPosition.z],
+      rotation: ((nextId % 4) * Math.PI) / 2,
+    };
+    cell.amenityId = amenity.id;
+
+    sector.simulationData.happiness = Math.min(100, sector.simulationData.happiness + 2);
+
+    set({ amenities: [...state.amenities, amenity] });
+    return true;
+  },
+
+  removeAmenity: (id) => {
+    const state = get();
+    const amenity = state.amenities.find((a) => a.id === id);
+    if (!amenity) return;
+
+    const cell = state.grid?.getCellById(amenity.cellId);
+    if (cell) cell.amenityId = null;
+
+    const sector = state.sectors.find((s) => s.id === amenity.sectorId);
+    if (sector) {
+      sector.simulationData.happiness = Math.max(0, sector.simulationData.happiness - 2);
+    }
+
+    set({ amenities: state.amenities.filter((a) => a.id !== id) });
+  },
+
   setRenderMode: (mode) => set({ renderMode: mode }),
 
-  setActiveReport: (report) => set({ activeReport: report, showReports: report !== null }),
+  setActiveReport: (report) =>
+    set((s) => ({
+      activeReport: report,
+      // Open the list when selecting; keep it open when clearing overlay
+      showReports: report !== null ? true : s.showReports,
+    })),
 
   setCameraTarget: (target) => set({ cameraTarget: target }),
 
@@ -226,6 +318,8 @@ export const useCityStore = create<CityState>((set, get) => ({
   reset: () =>
     set({
       project: null,
+      sourceMapDataUrl: null,
+      geoBase: null,
       generationStage: 'idle',
       generationProgress: null,
       isGenerating: false,
@@ -235,6 +329,7 @@ export const useCityStore = create<CityState>((set, get) => ({
       sectors: [],
       roads: [],
       buildings: [],
+      amenities: [],
       trees: [],
       rocks: [],
       vehicles: [],

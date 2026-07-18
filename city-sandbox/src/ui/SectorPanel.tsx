@@ -1,16 +1,36 @@
+import { useState } from 'react';
 import { useSelectedSector } from '../store/useCityStore';
 import { useCityStore } from '../store/useCityStore';
+import { AMENITY_CONFIG } from '../core/constants';
+import { AmenityType } from '../types';
 
 export function SectorPanel() {
   const sector = useSelectedSector();
   const showSectorPanel = useCityStore((s) => s.showSectorPanel);
   const selectSector = useCityStore((s) => s.selectSector);
   const buildings = useCityStore((s) => s.buildings);
+  const amenities = useCityStore((s) => s.amenities);
+  const addAmenity = useCityStore((s) => s.addAmenity);
+  const removeAmenity = useCityStore((s) => s.removeAmenity);
+  const grid = useCityStore((s) => s.grid);
+  const [amenityHint, setAmenityHint] = useState<string | null>(null);
 
   if (!showSectorPanel || !sector) return null;
 
   const sectorBuildings = buildings.filter((b) => b.sectorId === sector.id);
+  const sectorAmenities = amenities.filter((a) => a.sectorId === sector.id);
+  const freeParcels = grid
+    ? sector.cellIds.filter((id) => {
+        const cell = grid.getCellById(id);
+        return cell && cell.roadId === null && cell.buildingId === null && cell.amenityId === null;
+      }).length
+    : 0;
   const sim = sector.simulationData;
+
+  const handleAdd = (type: AmenityType) => {
+    const ok = addAmenity(sector.id, type);
+    setAmenityHint(ok ? null : 'Sector is full — remove something first.');
+  };
 
   return (
     <div className="sector-panel">
@@ -94,6 +114,57 @@ export function SectorPanel() {
               </span>
             ))}
           </div>
+        </div>
+
+        <div className="panel-section">
+          <h4>Amenities</h4>
+          {sectorAmenities.length > 0 ? (
+            <div className="amenity-chips">
+              {sectorAmenities.map((amenity) => (
+                <span key={amenity.id} className="amenity-chip">
+                  <span
+                    className="amenity-swatch"
+                    style={{ background: AMENITY_CONFIG[amenity.type].color }}
+                  />
+                  {AMENITY_CONFIG[amenity.type].label}
+                  <button
+                    className="amenity-remove"
+                    title="Remove amenity"
+                    onClick={() => {
+                      removeAmenity(amenity.id);
+                      setAmenityHint(null);
+                    }}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="amenity-empty">No amenities yet — add some below.</p>
+          )}
+
+          <div className="amenity-meta">
+            <span>{freeParcels} free parcels</span>
+          </div>
+
+          <div className="amenity-add-grid">
+            {Object.values(AmenityType).map((type) => (
+              <button
+                key={type}
+                className="amenity-add-btn"
+                disabled={freeParcels === 0}
+                onClick={() => handleAdd(type)}
+              >
+                <span
+                  className="amenity-swatch"
+                  style={{ background: AMENITY_CONFIG[type].color }}
+                />
+                {AMENITY_CONFIG[type].label}
+              </button>
+            ))}
+          </div>
+          {amenityHint && <p className="amenity-hint">{amenityHint}</p>}
         </div>
       </div>
     </div>

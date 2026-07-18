@@ -8,11 +8,28 @@ let nextRoadId = 0;
 
 type RoadMask = Map<string, RoadType>;
 
+export type RoadLayoutPreset = 'edges' | 'minimal' | 'standard';
+
+export interface RoadLayoutOptions {
+  /**
+   * edges    — arterials on sector boundaries only; internal access road
+   *            added only when a sector is too large to serve from its edges
+   * minimal  — edges + one internal cross road per sector
+   * standard — classic full internal block grid + diagonal boulevard
+   */
+  preset: RoadLayoutPreset;
+}
+
+export const DEFAULT_ROAD_LAYOUT: RoadLayoutOptions = { preset: 'edges' };
+
+/** Sectors wider/taller than this need an internal access road in 'edges' mode. */
+const EDGE_ACCESS_THRESHOLD = 9;
+
 /**
  * Gandhinagar-style road network:
  * 1) Primary arterials on the planned macro-grid (sector boundaries)
- * 2) Secondary / pedestrian grid inside each rectangular sector
- * 3) Optional diagonal boulevard across the city AABB
+ * 2) Internal roads per the configurable layout preset
+ * 3) Optional diagonal boulevard (standard preset only)
  */
 export class RoadGenerator {
   private grid: GridEngine;
@@ -45,15 +62,23 @@ export class RoadGenerator {
     }
   }
 
-  generate(plan: CityPlan): RoadSegment[] {
+  generate(plan: CityPlan, layout: RoadLayoutOptions = DEFAULT_ROAD_LAYOUT): RoadSegment[] {
     nextRoadId = 0;
     this.mask.clear();
 
     this.paintArterials(plan);
     for (const sector of plan.sectors) {
-      this.paintSectorInterior(sector);
+      if (layout.preset === 'standard') {
+        this.paintSectorInterior(sector);
+      } else if (layout.preset === 'minimal') {
+        this.paintSectorCross(sector);
+      } else {
+        this.paintSectorAccessIfNeeded(sector);
+      }
     }
-    this.paintDiagonalBoulevard(plan);
+    if (layout.preset === 'standard') {
+      this.paintDiagonalBoulevard(plan);
+    }
     this.fillLocalGaps();
 
     return this.maskToSegments(plan.sectors);
@@ -73,6 +98,35 @@ export class RoadGenerator {
       for (let x = minX; x <= maxX; x++) {
         this.mark(x, ay, RoadType.Primary);
       }
+    }
+  }
+
+  /** One internal cross (secondary) connecting to arterials at sector edges. */
+  private paintSectorCross(sector: Sector): void {
+    const { minX, maxX, minY, maxY } = sector.bounds;
+    const midX = Math.floor((minX + maxX) / 2);
+    const midY = Math.floor((minY + maxY) / 2);
+    for (let x = minX; x <= maxX; x++) this.mark(x, midY, RoadType.Secondary);
+    for (let y = minY; y <= maxY; y++) this.mark(midX, y, RoadType.Secondary);
+  }
+
+  /**
+   * Edges-only mode: keep the sector interior road-free unless the parcel is
+   * too deep to serve from boundary arterials, then add a single access road
+   * along the longer dimension.
+   */
+  private paintSectorAccessIfNeeded(sector: Sector): void {
+    const { minX, maxX, minY, maxY } = sector.bounds;
+    const width = maxX - minX + 1;
+    const height = maxY - minY + 1;
+    if (width <= EDGE_ACCESS_THRESHOLD && height <= EDGE_ACCESS_THRESHOLD) return;
+
+    if (width >= height) {
+      const midY = Math.floor((minY + maxY) / 2);
+      for (let x = minX; x <= maxX; x++) this.mark(x, midY, RoadType.Secondary);
+    } else {
+      const midX = Math.floor((minX + maxX) / 2);
+      for (let y = minY; y <= maxY; y++) this.mark(midX, y, RoadType.Secondary);
     }
   }
 

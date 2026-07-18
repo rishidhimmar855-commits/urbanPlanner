@@ -22,9 +22,32 @@ export function classifyPixel(r: number, g: number, b: number): TerrainType {
   return bestType;
 }
 
-export function parseTerrainImage(
+/**
+ * Classifier tuned for real satellite photos (not hand-drawn maps).
+ * Real land is mostly buildable: only clear water and strong vegetation
+ * are carved out, so the city generator gets a usable canvas.
+ */
+export function classifyGeoPixel(r: number, g: number, b: number): TerrainType {
+  const brightness = (r + g + b) / 3;
+
+  // Water: blue-dominant or very dark (rivers, sea, lakes)
+  if (b > r + 12 && b > g + 6 && b > 60) return TerrainType.Water;
+  if (brightness < 40 && b >= r) return TerrainType.Water;
+
+  // Dense vegetation: strongly green and dark
+  if (g > r + 18 && g > b + 18 && g > 60 && brightness < 110) return TerrainType.Forest;
+
+  // Moderate vegetation / crops: greenish
+  if (g > r + 10 && g > b + 14) return TerrainType.HighFertility;
+
+  // Everything else (barren, scrub, built-up, sand) is buildable land
+  return TerrainType.LowFertility;
+}
+
+function parseImageWith(
   imageData: ImageData,
-  maxSize: number
+  maxSize: number,
+  classify: (r: number, g: number, b: number) => TerrainType
 ): { terrainGrid: TerrainType[][]; width: number; height: number } {
   const { width: srcW, height: srcH, data } = imageData;
   const scale = Math.min(1, maxSize / Math.max(srcW, srcH));
@@ -39,12 +62,27 @@ export function parseTerrainImage(
     for (let x = 0; x < width; x++) {
       const srcX = Math.floor((x / width) * srcW);
       const idx = (srcY * srcW + srcX) * 4;
-      row.push(classifyPixel(data[idx], data[idx + 1], data[idx + 2]));
+      row.push(classify(data[idx], data[idx + 1], data[idx + 2]));
     }
     terrainGrid.push(row);
   }
 
   return { terrainGrid, width, height };
+}
+
+export function parseTerrainImage(
+  imageData: ImageData,
+  maxSize: number
+): { terrainGrid: TerrainType[][]; width: number; height: number } {
+  return parseImageWith(imageData, maxSize, classifyPixel);
+}
+
+/** Parse a real satellite image into terrain, biased toward buildable land. */
+export function parseGeoTerrainImage(
+  imageData: ImageData,
+  maxSize: number
+): { terrainGrid: TerrainType[][]; width: number; height: number } {
+  return parseImageWith(imageData, maxSize, classifyGeoPixel);
 }
 
 export async function loadImageFromFile(file: File): Promise<ImageData> {

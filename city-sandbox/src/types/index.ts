@@ -29,6 +29,24 @@ export enum BuildingType {
   Commercial = 'commercial',
 }
 
+export enum AmenityType {
+  Park = 'park',
+  School = 'school',
+  Hospital = 'hospital',
+  Market = 'market',
+  Community = 'community',
+  Sports = 'sports',
+}
+
+export interface AmenityInstance {
+  id: number;
+  sectorId: number;
+  cellId: number;
+  type: AmenityType;
+  position: [number, number, number];
+  rotation: number;
+}
+
 export enum RenderMode {
   Overview = 'overview',
   Detail = 'detail',
@@ -78,6 +96,7 @@ export interface CellData {
   districtId: number | null;
   roadId: number | null;
   buildingId: number | null;
+  amenityId: number | null;
   simulationData: Partial<SimulationData>;
 }
 
@@ -168,6 +187,13 @@ export interface CityProject {
   gridWidth: number;
   gridHeight: number;
   cellSize: number;
+  /** Real-world location metadata when the land base is fetched from satellite tiles */
+  geo?: {
+    centerLat: number;
+    centerLng: number;
+    areaKm: number;
+    zoom: number;
+  };
 }
 
 export interface GenerationProgress {

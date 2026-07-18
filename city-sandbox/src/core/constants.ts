@@ -1,4 +1,4 @@
-import { TerrainType, SectorDensity, RoadType, BuildingType } from '../types';
+import { TerrainType, SectorDensity, RoadType, BuildingType, AmenityType } from '../types';
 
 export const CELL_SIZE = 3;
 export const MAX_GRID_SIZE = 64;
@@ -136,6 +136,19 @@ export const BUILDING_CONFIG: Record<
     colors: ['#1565C0', '#1976D2', '#1E88E5', '#42A5F5'],
     roofColors: ['#0D47A1', '#1565C0'],
   },
+};
+
+/** Footprint / height as fractions of CELL_SIZE so amenities fit inside one parcel cell. */
+export const AMENITY_CONFIG: Record<
+  AmenityType,
+  { label: string; color: string; footprint: number; height: number }
+> = {
+  [AmenityType.Park]: { label: 'Park', color: '#66BB6A', footprint: 0.9, height: 0.5 },
+  [AmenityType.School]: { label: 'School', color: '#FDD835', footprint: 0.85, height: 0.8 },
+  [AmenityType.Hospital]: { label: 'Hospital', color: '#ECEFF1', footprint: 0.85, height: 1.2 },
+  [AmenityType.Market]: { label: 'Market', color: '#FF9800', footprint: 0.9, height: 0.7 },
+  [AmenityType.Community]: { label: 'Community Hall', color: '#AB47BC', footprint: 0.8, height: 0.9 },
+  [AmenityType.Sports]: { label: 'Sports Ground', color: '#26A69A', footprint: 0.95, height: 0.4 },
 };
 
 export const DENSITY_TO_BUILDING: Record<SectorDensity, BuildingType> = {
