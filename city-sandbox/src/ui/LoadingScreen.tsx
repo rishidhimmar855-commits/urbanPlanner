@@ -10,7 +10,7 @@ export function LoadingScreen() {
     <div className="loading-screen">
       <div className="loading-content">
         <div className="loading-spinner" />
-        <h2>Generating City</h2>
+        <h2>Generating plan options</h2>
         <p>{progress.message}</p>
         <div className="progress-bar">
           <div className="progress-fill" style={{ width: `${progress.progress * 100}%` }} />

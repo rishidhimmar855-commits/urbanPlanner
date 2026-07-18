@@ -27,6 +27,12 @@ export enum BuildingType {
   Apartment = 'apartment',
   Tower = 'tower',
   Commercial = 'commercial',
+  Hospital = 'hospital',
+  School = 'school',
+  BusStand = 'bus_stand',
+  Railway = 'railway',
+  Park = 'park',
+  Market = 'market',
 }
 
 export enum RenderMode {
@@ -49,6 +55,26 @@ export enum ReportType {
   SectorComparison = 'sector_comparison',
   GrowthTrends = 'growth_trends',
 }
+
+export type AppStep = 'login' | 'workspace';
+
+export type AppView = 'overview' | 'visualize' | 'reports';
+
+export type CityType = 'mixed' | 'residential' | 'industrial' | 'green' | 'transit';
+
+export type PlanStyle = 'budget' | 'balanced' | 'growth';
+
+export type AmenityType =
+  | 'hospital'
+  | 'school'
+  | 'bus_stand'
+  | 'railway'
+  | 'park'
+  | 'market';
+
+export type Suitability = 'ready' | 'caution' | 'unsuitable';
+
+export type ProjectStatus = 'draft' | 'planning' | 'options_ready' | 'selected' | 'exported';
 
 export interface SimulationData {
   population: number;
@@ -161,6 +187,94 @@ export interface TrafficLight {
   timer: number;
 }
 
+export interface AmenityRequest {
+  type: AmenityType;
+  count: number;
+  label: string;
+}
+
+export interface AmenitySuitability {
+  type: AmenityType;
+  label: string;
+  suitability: Suitability;
+  reason: string;
+  recommendedCount: number;
+}
+
+export interface ProjectBrief {
+  name: string;
+  expectedPopulation: number;
+  budget: number;
+  cityType: CityType;
+  priorities: string[];
+  /** Planned delivery timeline in months */
+  timelineMonths?: number;
+  /** Site latitude (WGS84) when created from coordinates */
+  latitude?: number;
+  /** Site longitude (WGS84) when created from coordinates */
+  longitude?: number;
+  /** Approximate site extent in km */
+  siteSizeKm?: number;
+}
+
+export interface LandReadinessReport {
+  totalCells: number;
+  buildablePercent: number;
+  fertilePercent: number;
+  forestPercent: number;
+  waterPercent: number;
+  mineralPercent: number;
+  overallScore: number;
+  summary: string;
+  terrainCounts: Record<TerrainType, number>;
+  amenityAdvice: AmenitySuitability[];
+}
+
+export interface BudgetBreakdown {
+  roads: number;
+  buildings: number;
+  amenities: number;
+  landPrep: number;
+  total: number;
+}
+
+export interface PlanOptionSummary {
+  id: string;
+  style: PlanStyle;
+  label: string;
+  description: string;
+  estimatedBudget: BudgetBreakdown;
+  populationCapacity: number;
+  sectorCount: number;
+  buildingCount: number;
+  amenityCount: number;
+  roadCount: number;
+  happinessAvg: number;
+  withinBudget: boolean;
+  score: number;
+}
+
+export interface GovUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'planner' | 'reviewer' | 'admin';
+  department: string;
+}
+
+export interface SavedProjectMeta {
+  id: string;
+  name: string;
+  status: ProjectStatus;
+  cityType: CityType;
+  expectedPopulation: number;
+  budget: number;
+  createdAt: number;
+  updatedAt: number;
+  /** Classified land thumbnail (data URL) when available */
+  previewUrl?: string;
+}
+
 export interface CityProject {
   id: string;
   name: string;
@@ -168,6 +282,19 @@ export interface CityProject {
   gridWidth: number;
   gridHeight: number;
   cellSize: number;
+  expectedPopulation?: number;
+  budget?: number;
+  cityType?: CityType;
+  priorities?: string[];
+  status?: ProjectStatus;
+}
+
+export interface GenerationConfig {
+  style: PlanStyle;
+  expectedPopulation: number;
+  budget: number;
+  cityType: CityType;
+  amenities: AmenityRequest[];
 }
 
 export interface GenerationProgress {

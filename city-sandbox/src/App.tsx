@@ -1,28 +1,9 @@
 import { useCityStore } from './store/useCityStore';
-import { CityScene } from './rendering/CityScene';
-import { ProjectSetup } from './ui/ProjectSetup';
-import { Toolbar } from './ui/Toolbar';
-import { SectorPanel } from './ui/SectorPanel';
-import { ReportsPanel } from './ui/ReportsPanel';
-import { LoadingScreen } from './ui/LoadingScreen';
+import { Login } from './ui/Login';
+import { AppShell } from './ui/AppShell';
 
 export default function App() {
-  const grid = useCityStore((s) => s.grid);
-  const isGenerating = useCityStore((s) => s.isGenerating);
-
-  if (!grid && !isGenerating) {
-    return <ProjectSetup />;
-  }
-
-  return (
-    <div className="app">
-      <LoadingScreen />
-      <Toolbar />
-      <div className="scene-container">
-        <CityScene />
-      </div>
-      <SectorPanel />
-      <ReportsPanel />
-    </div>
-  );
+  const step = useCityStore((s) => s.step);
+  if (step === 'login') return <Login />;
+  return <AppShell />;
 }

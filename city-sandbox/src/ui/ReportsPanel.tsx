@@ -1,26 +1,36 @@
 import { useCityStore } from '../store/useCityStore';
 import { ReportType } from '../types';
 
-export function ReportsPanel() {
+interface ReportsPanelProps {
+  mode?: 'overlay' | 'page';
+}
+
+export function ReportsPanel({ mode = 'overlay' }: ReportsPanelProps) {
   const reports = useCityStore((s) => s.reports);
   const showReports = useCityStore((s) => s.showReports);
   const activeReport = useCityStore((s) => s.activeReport);
   const setActiveReport = useCityStore((s) => s.setActiveReport);
   const toggleReports = useCityStore((s) => s.toggleReports);
 
-  if (!showReports) return null;
+  if (mode === 'overlay' && !showReports) return null;
 
   return (
-    <div className="reports-panel">
+    <div className={mode === 'page' ? 'reports-panel reports-panel-page' : 'reports-panel'}>
       <div className="panel-header">
-        <h3>Analytics Reports</h3>
-        <button className="close-btn" onClick={toggleReports}>✕</button>
+        <h3>Analytics reports</h3>
+        {mode === 'overlay' && (
+          <button type="button" className="close-btn" onClick={toggleReports} aria-label="Close reports">
+            ✕
+          </button>
+        )}
       </div>
 
       <div className="reports-list">
+        {reports.length === 0 && <p className="muted panel-empty">No reports generated yet.</p>}
         {reports.map((report) => (
           <button
             key={report.type}
+            type="button"
             className={`report-item ${activeReport?.type === report.type ? 'active' : ''}`}
             onClick={() => setActiveReport(activeReport?.type === report.type ? null : report)}
           >

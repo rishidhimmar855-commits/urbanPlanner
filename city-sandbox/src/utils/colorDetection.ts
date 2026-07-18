@@ -1,50 +1,20 @@
 import { TerrainType } from '../types';
-import { TERRAIN_REFERENCE_RGB } from '../core/constants';
+import { classifyLandImage, classifyLegendPixel, type LandDetectMode } from './landClassify';
 
-export function classifyPixel(r: number, g: number, b: number): TerrainType {
-  let bestType = TerrainType.LowFertility;
-  let bestDist = Infinity;
-
-  for (const [type, ref] of Object.entries(TERRAIN_REFERENCE_RGB) as [
-    TerrainType,
-    [number, number, number],
-  ][]) {
-    const dr = r - ref[0];
-    const dg = g - ref[1];
-    const db = b - ref[2];
-    const dist = dr * dr + dg * dg + db * db;
-    if (dist < bestDist) {
-      bestDist = dist;
-      bestType = type;
-    }
-  }
-
-  return bestType;
-}
+/** @deprecated Use classifyLegendPixel from landClassify */
+export const classifyPixel = classifyLegendPixel;
 
 export function parseTerrainImage(
   imageData: ImageData,
-  maxSize: number
+  maxSize: number,
+  mode: LandDetectMode = 'auto'
 ): { terrainGrid: TerrainType[][]; width: number; height: number } {
-  const { width: srcW, height: srcH, data } = imageData;
-  const scale = Math.min(1, maxSize / Math.max(srcW, srcH));
-  const width = Math.max(1, Math.floor(srcW * scale));
-  const height = Math.max(1, Math.floor(srcH * scale));
-
-  const terrainGrid: TerrainType[][] = [];
-
-  for (let y = 0; y < height; y++) {
-    const row: TerrainType[] = [];
-    const srcY = Math.floor((y / height) * srcH);
-    for (let x = 0; x < width; x++) {
-      const srcX = Math.floor((x / width) * srcW);
-      const idx = (srcY * srcW + srcX) * 4;
-      row.push(classifyPixel(data[idx], data[idx + 1], data[idx + 2]));
-    }
-    terrainGrid.push(row);
-  }
-
-  return { terrainGrid, width, height };
+  const result = classifyLandImage(imageData, maxSize, mode);
+  return {
+    terrainGrid: result.terrainGrid,
+    width: result.width,
+    height: result.height,
+  };
 }
 
 export async function loadImageFromFile(file: File): Promise<ImageData> {
@@ -73,31 +43,76 @@ export async function loadImageFromFile(file: File): Promise<ImageData> {
  * Gandhinagar-style sectors, with water/forest/minerals as fringe.
  */
 export function createSampleTerrain(width: number, height: number): TerrainType[][] {
-  const grid: TerrainType[][] = [];
-  const cx = width / 2;
-  const cy = height / 2;
-  const cityHalfW = width * 0.32;
-  const cityHalfH = height * 0.32;
+  return createTerrainFromCoords(23.2156, 72.6369, 4, width, height);
+}
 
-  for (let y = 0; y < height; y++) {
+/** Deterministic RNG from a numeric seed (0–1). */
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return () => {
+    t += 0x6d2b79f5;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r ^= r + Math.imul(r ^ (r >>> 7), 61 | r);
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashCoords(lat: number, lng: number): number {
+  const x = Math.sin(lat * 12.9898 + lng * 78.233) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+/**
+ * Build a planning terrain grid from geographic coordinates.
+ * Lat/lng seed the landscape pattern; sizeKm maps to grid density (capped).
+ */
+export function createTerrainFromCoords(
+  lat: number,
+  lng: number,
+  sizeKm = 4,
+  width?: number,
+  height?: number
+): TerrainType[][] {
+  const cells = Math.max(
+    24,
+    Math.min(64, width ?? Math.round(28 + sizeKm * 6))
+  );
+  const w = width ?? cells;
+  const h = height ?? cells;
+  const rand = mulberry32(Math.floor(hashCoords(lat, lng) * 1e9) ^ Math.round(lat * 1e4) ^ Math.round(lng * 1e4));
+
+  const grid: TerrainType[][] = [];
+  const cx = w / 2;
+  const cy = h / 2;
+  // Shift city core slightly by longitude parity for variety
+  const offsetX = ((lng % 1) - 0.5) * w * 0.08;
+  const offsetY = ((lat % 1) - 0.5) * h * 0.08;
+  const cityHalfW = w * (0.26 + (Math.abs(lng) % 1) * 0.08);
+  const cityHalfH = h * (0.26 + (Math.abs(lat) % 1) * 0.08);
+  const waterAngle = hashCoords(lng, lat) * Math.PI * 2;
+
+  for (let y = 0; y < h; y++) {
     const row: TerrainType[] = [];
-    for (let x = 0; x < width; x++) {
-      const dx = x - cx;
-      const dy = y - cy;
+    for (let x = 0; x < w; x++) {
+      const dx = x - cx - offsetX;
+      const dy = y - cy - offsetY;
       const dist = Math.sqrt(dx * dx + dy * dy) / Math.max(cx, cy);
       const inCity = Math.abs(dx) < cityHalfW && Math.abs(dy) < cityHalfH;
 
-      // Lake just west of the planned city plateau
-      if (dx < -cityHalfW * 0.15 && dx > -cityHalfW * 0.7 && Math.abs(dy) < height * 0.08) {
+      const wx = dx * Math.cos(waterAngle) + dy * Math.sin(waterAngle);
+      const wy = -dx * Math.sin(waterAngle) + dy * Math.cos(waterAngle);
+      const nearWater = wx < -cityHalfW * 0.1 && wx > -cityHalfW * 0.85 && Math.abs(wy) < h * 0.1;
+
+      if (nearWater) {
         row.push(TerrainType.Water);
       } else if (inCity) {
         row.push(TerrainType.LowFertility);
-      } else if (dist < 0.55) {
-        row.push(Math.random() > 0.35 ? TerrainType.HighFertility : TerrainType.LowFertility);
-      } else if (dist < 0.78) {
-        row.push(Math.random() > 0.4 ? TerrainType.Forest : TerrainType.HighFertility);
+      } else if (dist < 0.52) {
+        row.push(rand() > 0.35 ? TerrainType.HighFertility : TerrainType.LowFertility);
+      } else if (dist < 0.76) {
+        row.push(rand() > 0.4 ? TerrainType.Forest : TerrainType.HighFertility);
       } else {
-        row.push(Math.random() > 0.55 ? TerrainType.HighMinerals : TerrainType.Forest);
+        row.push(rand() > 0.55 ? TerrainType.HighMinerals : TerrainType.Forest);
       }
     }
     grid.push(row);

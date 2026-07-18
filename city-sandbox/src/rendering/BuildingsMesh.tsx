@@ -68,8 +68,19 @@ export function BuildingsInstanced({ buildings, visible }: BuildingsInstancedPro
   const towers = useMemo(
     () =>
       buildings.filter(
-        (b) => b.type === BuildingType.Tower || b.type === BuildingType.Commercial
+        (b) =>
+          b.type === BuildingType.Tower ||
+          b.type === BuildingType.Commercial ||
+          b.type === BuildingType.Hospital ||
+          b.type === BuildingType.School ||
+          b.type === BuildingType.BusStand ||
+          b.type === BuildingType.Railway ||
+          b.type === BuildingType.Market
       ),
+    [buildings]
+  );
+  const parks = useMemo(
+    () => buildings.filter((b) => b.type === BuildingType.Park),
     [buildings]
   );
 
@@ -88,6 +99,7 @@ export function BuildingsInstanced({ buildings, visible }: BuildingsInstancedPro
       <BuildingLayer buildings={houses} geometry={houseGeo} />
       <BuildingLayer buildings={apartments} geometry={aptGeo} />
       <BuildingLayer buildings={towers} geometry={towerGeo} />
+      <BuildingLayer buildings={parks} geometry={houseGeo} />
     </group>
   );
 }

@@ -1,6 +1,16 @@
 import { useCityStore, useCityStats } from '../store/useCityStore';
 import { RenderMode, type CameraViewId } from '../types';
 import { CAMERA_VIEWS } from '../core/constants';
+import {
+  IconExport,
+  IconPause,
+  IconPlans,
+  IconPlay,
+  IconRefresh,
+  IconReports,
+  IconSetup,
+  IconTerrain,
+} from './Icons';
 
 const VIEW_IDS = Object.keys(CAMERA_VIEWS) as CameraViewId[];
 
@@ -10,70 +20,105 @@ export function Toolbar() {
   const isSimulating = useCityStore((s) => s.isSimulating);
   const terrainOnly = useCityStore((s) => s.terrainOnly);
   const cameraView = useCityStore((s) => s.cameraView);
+  const hasCity = useCityStore((s) => !!s.grid);
+  const planOptions = useCityStore((s) => s.planOptions);
   const setSimulating = useCityStore((s) => s.setSimulating);
   const toggleTerrainOnly = useCityStore((s) => s.toggleTerrainOnly);
   const setCameraView = useCityStore((s) => s.setCameraView);
-  const toggleReports = useCityStore((s) => s.toggleReports);
+  const setActiveView = useCityStore((s) => s.setActiveView);
+  const toggleExport = useCityStore((s) => s.toggleExport);
+  const toggleSetup = useCityStore((s) => s.toggleSetup);
+  const togglePlans = useCityStore((s) => s.togglePlans);
   const refreshReports = useCityStore((s) => s.refreshReports);
-  const reset = useCityStore((s) => s.reset);
   const stats = useCityStats();
 
   return (
-    <div className="toolbar">
+    <div className="toolbar desk-toolbar" role="toolbar" aria-label="3D tools">
       <div className="toolbar-left">
-        <h2>{project?.name ?? 'City Sandbox'}</h2>
-        <span className={`mode-badge ${terrainOnly ? 'terrain' : renderMode}`}>
-          {terrainOnly ? 'Terrain' : renderMode === RenderMode.Overview ? 'Overview' : 'Detail'}
-        </span>
+        <h2 className="toolbar-title">{project?.name ?? 'Untitled project'}</h2>
+        {hasCity && (
+          <span className={`mode-badge ${terrainOnly ? 'terrain' : renderMode}`}>
+            {terrainOnly ? 'Terrain' : renderMode === RenderMode.Overview ? 'Overview' : 'Detail'}
+          </span>
+        )}
       </div>
 
       <div className="toolbar-center">
-        <div className="view-switcher">
-          {VIEW_IDS.map((id) => (
-            <button
-              key={id}
-              className={`view-btn ${cameraView === id ? 'active' : ''}`}
-              onClick={() => setCameraView(id)}
-              title={CAMERA_VIEWS[id].label}
-            >
-              {CAMERA_VIEWS[id].label}
-            </button>
-          ))}
-        </div>
-        {!terrainOnly && stats && (
-          <div className="stats-bar">
-            <span>{stats.population.toLocaleString()} pop</span>
-            <span>{stats.vehicles} veh</span>
-            <span>{stats.happiness.toFixed(0)}% happy</span>
-          </div>
+        {hasCity && (
+          <>
+            <div className="view-switcher" role="group" aria-label="Camera views">
+              {VIEW_IDS.map((id) => (
+                <button
+                  key={id}
+                  type="button"
+                  className={`view-btn ${cameraView === id ? 'active' : ''}`}
+                  onClick={() => setCameraView(id)}
+                  aria-pressed={cameraView === id}
+                >
+                  {CAMERA_VIEWS[id].label}
+                </button>
+              ))}
+            </div>
+            {!terrainOnly && stats && (
+              <div className="stats-bar" aria-live="polite">
+                <span>{stats.population.toLocaleString()} pop</span>
+                <span>{stats.vehicles} veh</span>
+                <span>{stats.happiness.toFixed(0)}% happy</span>
+              </div>
+            )}
+          </>
         )}
       </div>
 
       <div className="toolbar-right">
-        <button
-          className={`tool-btn ${terrainOnly ? 'active' : ''}`}
-          onClick={toggleTerrainOnly}
-          title="Show only terrain + water"
-        >
-          Terrain Only
+        <button type="button" className="btn btn-secondary btn-sm" onClick={toggleSetup}>
+          <IconSetup size={14} />
+          Setup
         </button>
-        {!terrainOnly && (
-          <button
-            className={`tool-btn ${isSimulating ? 'active' : ''}`}
-            onClick={() => setSimulating(!isSimulating)}
-          >
-            {isSimulating ? 'Pause' : 'Simulate'}
+        {planOptions.length > 0 && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={togglePlans}>
+            <IconPlans size={14} />
+            Plans
           </button>
         )}
-        <button className="tool-btn" onClick={toggleReports}>
-          Reports
-        </button>
-        <button className="tool-btn" onClick={refreshReports}>
-          Refresh
-        </button>
-        <button className="tool-btn danger" onClick={reset}>
-          New
-        </button>
+        {hasCity && (
+          <>
+            <button
+              type="button"
+              className={`btn btn-secondary btn-sm ${terrainOnly ? 'is-active' : ''}`}
+              onClick={toggleTerrainOnly}
+              aria-pressed={terrainOnly}
+            >
+              <IconTerrain size={14} />
+              Terrain
+            </button>
+            <button
+              type="button"
+              className={`btn btn-secondary btn-sm ${isSimulating ? 'is-active' : ''}`}
+              onClick={() => setSimulating(!isSimulating)}
+              aria-pressed={isSimulating}
+            >
+              {isSimulating ? <IconPause size={14} /> : <IconPlay size={14} />}
+              {isSimulating ? 'Pause' : 'Simulate'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setActiveView('reports')}
+            >
+              <IconReports size={14} />
+              Reports
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={refreshReports}>
+              <IconRefresh size={14} />
+              Refresh
+            </button>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={toggleExport}>
+              <IconExport size={14} />
+              Export
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

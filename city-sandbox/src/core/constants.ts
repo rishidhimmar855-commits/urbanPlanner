@@ -1,4 +1,12 @@
-import { TerrainType, SectorDensity, RoadType, BuildingType } from '../types';
+import {
+  TerrainType,
+  SectorDensity,
+  RoadType,
+  BuildingType,
+  type AmenityType,
+  type PlanStyle,
+  type CityType,
+} from '../types';
 
 export const CELL_SIZE = 3;
 export const MAX_GRID_SIZE = 64;
@@ -136,7 +144,143 @@ export const BUILDING_CONFIG: Record<
     colors: ['#1565C0', '#1976D2', '#1E88E5', '#42A5F5'],
     roofColors: ['#0D47A1', '#1565C0'],
   },
+  [BuildingType.Hospital]: {
+    footprint: [0.8, 0.95],
+    colors: ['#E53935', '#EF5350', '#FFCDD2'],
+    roofColors: ['#B71C1C', '#C62828'],
+  },
+  [BuildingType.School]: {
+    footprint: [0.75, 0.9],
+    colors: ['#FB8C00', '#FFA726', '#FFE0B2'],
+    roofColors: ['#E65100', '#EF6C00'],
+  },
+  [BuildingType.BusStand]: {
+    footprint: [0.7, 0.85],
+    colors: ['#00897B', '#26A69A', '#80CBC4'],
+    roofColors: ['#004D40', '#00695C'],
+  },
+  [BuildingType.Railway]: {
+    footprint: [0.85, 0.98],
+    colors: ['#5E35B1', '#7E57C2', '#B39DDB'],
+    roofColors: ['#311B92', '#4527A0'],
+  },
+  [BuildingType.Park]: {
+    footprint: [0.6, 0.85],
+    colors: ['#43A047', '#66BB6A', '#A5D6A7'],
+    roofColors: ['#2E7D32', '#388E3C'],
+  },
+  [BuildingType.Market]: {
+    footprint: [0.7, 0.9],
+    colors: ['#F9A825', '#FBC02D', '#FFF59D'],
+    roofColors: ['#F57F17', '#F9A825'],
+  },
 };
+
+export const AMENITY_META: Record<
+  AmenityType,
+  {
+    label: string;
+    buildingType: BuildingType;
+    unitCost: number;
+    popPerUnit: number;
+    image: string;
+    blurb: string;
+  }
+> = {
+  hospital: {
+    label: 'Hospital',
+    buildingType: BuildingType.Hospital,
+    unitCost: 45_000_000,
+    popPerUnit: 25_000,
+    image: '/amenities/hospital.svg',
+    blurb: 'Emergency & public health campus',
+  },
+  school: {
+    label: 'School',
+    buildingType: BuildingType.School,
+    unitCost: 8_000_000,
+    popPerUnit: 5_000,
+    image: '/amenities/school.svg',
+    blurb: 'Neighborhood education block',
+  },
+  bus_stand: {
+    label: 'Bus Stand',
+    buildingType: BuildingType.BusStand,
+    unitCost: 12_000_000,
+    popPerUnit: 20_000,
+    image: '/amenities/bus_stand.svg',
+    blurb: 'City bus terminal hub',
+  },
+  railway: {
+    label: 'Railway Station',
+    buildingType: BuildingType.Railway,
+    unitCost: 80_000_000,
+    popPerUnit: 80_000,
+    image: '/amenities/railway.svg',
+    blurb: 'Regional rail interchange',
+  },
+  park: {
+    label: 'Park',
+    buildingType: BuildingType.Park,
+    unitCost: 2_500_000,
+    popPerUnit: 8_000,
+    image: '/amenities/park.svg',
+    blurb: 'Green public open space',
+  },
+  market: {
+    label: 'Market',
+    buildingType: BuildingType.Market,
+    unitCost: 6_000_000,
+    popPerUnit: 10_000,
+    image: '/amenities/market.svg',
+    blurb: 'Local commerce & food market',
+  },
+};
+
+export const PLAN_STYLE_META: Record<
+  PlanStyle,
+  { label: string; description: string; densityBias: number; buildingScale: number; amenityScale: number; costScale: number }
+> = {
+  budget: {
+    label: 'Budget Plan',
+    description: 'Phased, lower density, essential amenities only — lowest upfront cost.',
+    densityBias: -1,
+    buildingScale: 0.7,
+    amenityScale: 0.75,
+    costScale: 0.85,
+  },
+  balanced: {
+    label: 'Balanced Plan',
+    description: 'Gandhinagar-style mix of densities with full amenity coverage within budget.',
+    densityBias: 0,
+    buildingScale: 1,
+    amenityScale: 1,
+    costScale: 1,
+  },
+  growth: {
+    label: 'Growth Plan',
+    description: 'Higher capacity core, stronger transit, long-term expansion — higher cost.',
+    densityBias: 1,
+    buildingScale: 1.35,
+    amenityScale: 1.25,
+    costScale: 1.2,
+  },
+};
+
+export const CITY_TYPE_LABELS: Record<CityType, string> = {
+  mixed: 'Mixed-use',
+  residential: 'Residential',
+  industrial: 'Industrial / Jobs',
+  green: 'Green / Eco',
+  transit: 'Transit-oriented',
+};
+
+export const COST_PER_ROAD = 450_000;
+export const COST_PER_HOUSE = 2_500_000;
+export const COST_PER_APARTMENT = 8_000_000;
+export const COST_PER_TOWER = 25_000_000;
+export const COST_PER_COMMERCIAL = 12_000_000;
+export const COST_LAND_PREP_PER_CELL = 80_000;
 
 export const DENSITY_TO_BUILDING: Record<SectorDensity, BuildingType> = {
   [SectorDensity.Low]: BuildingType.House,

@@ -1,31 +1,27 @@
 import { GridEngine } from '../core/GridEngine';
-import { SECTOR_DENSITY_CONFIG, SECTOR_PLAN } from '../core/constants';
-import { TerrainType, SectorDensity, type Sector } from '../types';
+import { SECTOR_DENSITY_CONFIG, SECTOR_PLAN, PLAN_STYLE_META } from '../core/constants';
+import { TerrainType, SectorDensity, type Sector, type PlanStyle } from '../types';
 import type { Cell } from '../core/Cell';
 
 let nextSectorId = 0;
 
 export interface CityPlan {
   sectors: Sector[];
-  /** Arterial corridor X coordinates (full columns painted as primary roads) */
   arterialXs: number[];
-  /** Arterial corridor Y coordinates (full rows painted as primary roads) */
   arterialYs: number[];
-  /** Buildable city AABB used for the plan */
   cityBounds: { minX: number; maxX: number; minY: number; maxY: number };
 }
 
 /**
- * Gandhinagar-style sectorization:
- * 1. Find the largest contiguous buildable region (low fertility)
- * 2. Overlay a regular arterial road grid
- * 3. Each rectangular block BETWEEN arterials becomes a numbered Sector
+ * Gandhinagar-style sectorization with plan-style density bias.
  */
 export class SectorGenerator {
   private grid: GridEngine;
+  private style: PlanStyle;
 
-  constructor(grid: GridEngine) {
+  constructor(grid: GridEngine, style: PlanStyle = 'balanced') {
     this.grid = grid;
+    this.style = style;
   }
 
   generate(): CityPlan {
@@ -48,7 +44,6 @@ export class SectorGenerator {
     const arterialYs: number[] = [];
 
     for (let x = minX; x <= maxX; x += pitch) arterialXs.push(x);
-    // Ensure a closing arterial on the far edge when space allows
     if (arterialXs[arterialXs.length - 1] !== maxX && maxX - arterialXs[arterialXs.length - 1] > 1) {
       arterialXs.push(Math.min(maxX, arterialXs[arterialXs.length - 1] + pitch));
     }
@@ -131,7 +126,6 @@ export class SectorGenerator {
     bounds: Sector['bounds']
   ): Sector {
     const id = nextSectorId++;
-    // Density varies by ring from city center of the plan
     const density = this.pickDensity(gridCol, gridRow);
     const config = SECTOR_DENSITY_CONFIG[density];
 
@@ -166,14 +160,22 @@ export class SectorGenerator {
   }
 
   private pickDensity(col: number, row: number): SectorDensity {
-    // Inner sectors denser — like a planned capital core
-    const roll = (col + row) % 5;
+    const bias = PLAN_STYLE_META[this.style].densityBias;
+    const roll = (col + row + bias + 5) % 5;
+    if (this.style === 'budget') {
+      if (roll <= 0) return SectorDensity.Medium;
+      return SectorDensity.Low;
+    }
+    if (this.style === 'growth') {
+      if (roll <= 2) return SectorDensity.High;
+      if (roll <= 3) return SectorDensity.Medium;
+      return SectorDensity.Low;
+    }
     if (roll <= 1) return SectorDensity.High;
     if (roll <= 3) return SectorDensity.Medium;
     return SectorDensity.Low;
   }
 
-  /** Clockwise rectangle outline for sector borders (Gandhinagar blocks). */
   private rectBoundary(bounds: Sector['bounds']): [number, number][] {
     const { minX, maxX, minY, maxY } = bounds;
     const pts: [number, number][] = [];
